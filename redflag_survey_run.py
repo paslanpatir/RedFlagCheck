@@ -30,21 +30,21 @@ def is_valid_email(email):
 def load_data(file_path):
     cat = pd.read_excel(file_path, sheet_name="Categories")
     dt = pd.read_excel(file_path, sheet_name="RedFlags")
-    return cat,dt
+    filters = pd.read_excel(file_path, sheet_name="Filters")
+    return cat,dt,filters
 
 # %%
 def toxic_score_sofar(file_name='user_responses.csv'):
-    dt = pd.read_csv(file_name)
-    return dt['Toxic Score'].mean()
+    try:
+        dt = pd.read_csv(file_name)
+        if not dt.empty:
+            return dt['Toxic Score'].mean()
+        else:
+            return 0  # Default value if the file is empty
+    except FileNotFoundError:
+        return 0  # Default value if the file does not exist
 
 # %%
-def load_filter_questions(file_path):
-    """
-    Load the filter questions from the Excel file.
-    """
-    filters = pd.read_excel(file_path, sheet_name="Filters")
-    return filters
-
 def ask_filter_questions(filters, language):
     """
     Ask the filter questions and collect integer responses.
@@ -63,7 +63,8 @@ def ask_filter_questions(filters, language):
         )
         responses[row["Filter_Name"]] = response
 
-        filter_violations = filter_violations + np.where(response> upper_limit,1,0)
+        if response > upper_limit:
+            filter_violations += 1
 
     return responses,filter_violations
 
@@ -143,6 +144,9 @@ def main():
     if "user_details" not in st.session_state:
         st.session_state.user_details = {"name": None, "email": None, "language": None}
         #st.session_state.user_details = {"name": 'pelin_deneme', "email": 'pelin@deneme.com', "language": 'TR'}
+    if "filter_responses" not in st.session_state:
+        st.session_state.filter_responses = None
+        st.session_state.filter_violations = 0 
 
     # Ask the user for their preferred language
     if not st.session_state.user_details["language"]:
@@ -188,51 +192,60 @@ def main():
     
         # Load the Excel file
         file_path = "RedFlagQuestions_Scores.xlsx"
-        cat,dt = load_data(file_path)
+        cat,dt,filters = load_data(file_path)
 
         # Generate the survey
         welcome(name, language)
 
-        if language == "EN":
-            st.subheader("Please answer the following questions :tulip:", divider=True)
-        elif language == "TR":
-            st.subheader("Lütfen aşağıdaki soruları cevaplayın :tulip:", divider=True)
-        answers, toxic_score = generate_survey(dt, language)
+        if st.session_state.filter_responses is None:
+            st.write("Please answer the following filter questions:")
+            filter_responses,filter_violations = ask_filter_questions(filters, language)
+            if st.button("Submit Filter Responses / Filtre Cevaplarını Gönder"):
+                st.session_state.filter_responses   = filter_responses
+                st.session_state.filter_violations  = filter_violations
+                #st.rerun()
+        else:       
+            if language == "EN":
+                st.subheader("Please answer the following questions :tulip:", divider=True)
+            elif language == "TR":
+                st.subheader("Lütfen aşağıdaki soruları cevaplayın :tulip:", divider=True)
+            answers, toxic_score = generate_survey(dt, language)
 
-        # Ask the filter questions
-        filters = load_filter_questions(file_path)
-        filter_responses,filter_violations = ask_filter_questions(filters, language)
+    
+            # Save the user data and answers
+            if st.button('Submit / Gönder'):
+                if name and email:  # Ensure name and email are provided
+                    avg_toxic = toxic_score_sofar(file_name='user_responses.csv')
 
-        # Save the user data and answers
-        if st.button('Submit / Gönder'):
-            if name and email:  # Ensure name and email are provided
-                avg_toxic = toxic_score_sofar(file_name='user_responses.csv')
-                save_user_data(user_id, name, email, language, answers, toxic_score, filter_responses, filter_violations)
-
-                if language == "EN":
-                    st.success(f"Thank you for completing the survey! Your boyfriend's toxic score is: **{toxic_score:.2f}**")
-
-                    if filter_violations> 0:
-                        st.warning("However, unfortunately he failed the filters. This should be a critical warning for you :( !")
+                    if st.session_state.filter_responses is not None:
+                        save_user_data(user_id, name, email, language, answers, toxic_score, st.session_state.filter_responses, st.session_state.filter_violations)
                     else:
-                        if toxic_score < avg_toxic:
-                            st.warning("Your boyfriend seems to have lower toxicity compared to many guys. Good for him!")
+                        st.error("Please complete the filter questions before submitting.")
+
+                    if language == "EN":
+                        st.success(f"Thank you for completing the survey! Your boyfriend's toxic score is: **{toxic_score:.2f}**")
+
+                        if st.session_state.filter_violations > 0:
+                            st.warning("However, unfortunately he failed the filters. This should be a critical warning for you :( !")
                         else:
-                            st.error("Your score indicates a high level of toxicity. Please take action to address this.")
-                elif language == "TR":
-                    st.success(f"Anketi tamamladığınız için teşekkürler! Erkek arkadaşınızın toksiklik puanı: **{toxic_score:.2f}**")
-                    if filter_violations> 0:
-                        st.warning("Ama, ne yazık ki filtrelerde sınıfta kaldı. Bu senin için ciddi bir uyarı anlamına gelmeli :( !")
-                    else:
-                        if toxic_score < avg_toxic:
-                            st.warning("Erkek arkadaşınız ortalamaya göre daha düşük toksiklik seviyesinde. Bu onun için iyi!")
+                            if toxic_score < avg_toxic:
+                                st.warning("Your boyfriend seems to have lower toxicity compared to many guys. Good for him!")
+                            else:
+                                st.error("Your score indicates a high level of toxicity. Please take action to address this.")
+                    elif language == "TR":
+                        st.success(f"Anketi tamamladığınız için teşekkürler! Erkek arkadaşınızın toksiklik puanı: **{toxic_score:.2f}**")
+                        if st.session_state.filter_violations > 0:
+                            st.warning("Ama, ne yazık ki filtrelerde sınıfta kaldı. Bu senin için ciddi bir uyarı anlamına gelmeli :( !")
                         else:
-                            st.error("Skorunuz yüksek bir toksiklik seviyesini gösteriyor. Lütfen bu konuda harekete geçin.")
-            else:
-                if language == "EN":
-                    st.error("Please enter your name and email before submitting.")
-                elif language == "TR":
-                    st.error("Göndermeden önce lütfen adınızı ve e-posta adresinizi girin.")
+                            if toxic_score < avg_toxic:
+                                st.warning("Erkek arkadaşınız ortalamaya göre daha düşük toksiklik seviyesinde. Bu onun için iyi!")
+                            else:
+                                st.error("Skorunuz yüksek bir toksiklik seviyesini gösteriyor. Lütfen bu konuda harekete geçin.")
+                else:
+                    if language == "EN":
+                        st.error("Please enter your name and email before submitting.")
+                    elif language == "TR":
+                        st.error("Göndermeden önce lütfen adınızı ve e-posta adresinizi girin.")
 
 
 # %%

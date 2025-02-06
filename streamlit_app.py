@@ -125,7 +125,7 @@ def save_user_data(user_id, name, email, language, answers, toxic_score, filter_
     Ensure all possible questions and filters are included as columns.
     """
     # Load all questions and filters to get the full list of columns
-    file_path = "RedFlagQuestions_Scores.xlsx"
+    file_path = 'https://github.com/paslanpatir/RedFlagCheck/blob/main/RedFlagQuestions_Scores.xlsx' #"RedFlagQuestions_Scores.xlsx"
     _, dt, filters = load_data(file_path)
 
     # Create a dictionary with all possible columns initialized to NaN

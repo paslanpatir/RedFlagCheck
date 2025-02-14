@@ -140,7 +140,7 @@ def ask_filter_questions(filters, language):
             response_txt = st.radio(f"{question}", options=opt, key=f"radio_{index}")
             response = 1 if response_txt == "Yes" or response_txt == "Evet" else 0  # Convert "Yes" to yes_no_default_score and "No" to 0
 
-        responses[row["Filter_Name"]] = response
+        responses[row["Filter_ID"]] = response
 
         if response > upper_limit:
             filter_violations += 1

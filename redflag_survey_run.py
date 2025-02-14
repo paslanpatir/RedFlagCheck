@@ -394,12 +394,15 @@ def ask_toxicity_opinion(language):
             st.warning("Lütfen bir değerlendirme yapın.")
         return None  # Return None if no feedback is selected
     
-    if language == "EN":
-        st.markdown(f"You selected **{selected}**. ")
-    elif language == "TR":
-        st.markdown(f"**{selected}** seçtin.")
+    # Map the selected option to an integer value (1 to 5)
+    toxicity_rating = opt.index(selected) + 1  # +1 because index starts from 0
 
-    return selected
+    if language == "EN":
+        st.markdown(f"You selected **{selected}**. This corresponds to a toxicity rating of **{toxicity_rating}**.")
+    elif language == "TR":
+        st.markdown(f"**{selected}** seçtin. Bu, **{toxicity_rating}** toksisite derecesine karşılık geliyor.")
+
+    return toxicity_rating  
 
 
 def save_toxicity_input(user_id, name, email,bf_name,language, toxicity_rating,file_name='user_toxicity_rating.csv'):
@@ -468,6 +471,8 @@ def main():
         st.session_state.survey_completed = False  # Track if the survey is fully completed
     if "welcome_shown" not in st.session_state:
         st.session_state.welcome_shown = False  # Track if the survey is fully completed
+    if "user_id" not in st.session_state:  # Initialize user_id in session state
+        st.session_state.user_id = str(uuid.uuid4())  # Generate a unique ID for the user
 
     # Ask the user for their preferred language
     if not st.session_state.user_details["language"]:
@@ -491,8 +496,8 @@ def main():
             name = st.text_input(selected_language.get_text("name_input"), key="name_input")
             email = st.text_input(selected_language.get_text("email_input"), key="email_input")
             if st.form_submit_button("Submit / Gönder"):
-                if name: 
-                    if email:  # Ensure name and email are provided
+                if name:  # Ensure name is provided
+                    if email:  # E-posta adresi girildiyse doğrula
                         if is_valid_email(email):  # Validate email format
                             st.session_state.user_details["name"] = name
                             st.session_state.user_details["email"] = email
@@ -508,21 +513,20 @@ def main():
                         st.rerun()
                 else:
                     if language == "EN":
-                        st.error("Please enter both your name and email.")
+                        st.error("Please enter your name.")
                     elif language == "TR":
-                        st.error("Lütfen hem adınızı hem e-posta adresinizi girin.")
+                        st.error("Lütfen adınızı girin.")
 
     # Ask the user for their boyfriend's name
     elif not st.session_state.user_details["bf_name"]:
         language = st.session_state.user_details["language"]
         if language == "EN":
-            st.write("Please enter your boyfriend's name: :man-juggling:")
+            st.write("Please enter your boyfriend's name:")
         elif language == "TR":
-            st.write("Lütfen erkek arkadaşınızın adını girin: :man-juggling:")
+            st.write("Lütfen erkek arkadaşınızın adını girin:")
 
-        with st.form("boyfriend"):
-            selected_language = Language(language)
-            bf_name  = st.text_input(selected_language.get_text("bf_name_input"), key="bf_name_input")
+        with st.form("bf_name_form"):
+            bf_name = st.text_input("Boyfriend's Name / Erkek Arkadaşın Adı", key="bf_name_input")
             if st.form_submit_button("Submit / Gönder"):
                 if bf_name:  # Ensure boyfriend's name is provided
                     st.session_state.user_details["bf_name"] = bf_name
@@ -538,8 +542,7 @@ def main():
         email = st.session_state.user_details["email"]
         bf_name = st.session_state.user_details["bf_name"]
         language = st.session_state.user_details["language"]
-        # Generate a unique ID for the user
-        user_id = str(uuid.uuid4())  # Creates a unique identifier
+        user_id = st.session_state.user_id  # Use the existing user_id from session state
 
         # Load the Excel file
         cat, dt, filters = load_data(file_path)
@@ -557,7 +560,6 @@ def main():
                 st.rerun()  # Rerun the app to update the state
         else:
             if not st.session_state.submitted and not st.session_state.survey_completed:
-                scroll_to_top()
                 if language == "EN":
                     st.subheader("Please answer the following questions :tulip:", divider=True)
                 elif language == "TR":
@@ -566,7 +568,7 @@ def main():
 
                 # Save the user data and answers
                 if st.button('Submit / Gönder'):
-                    if name and email:  # Ensure name and email are provided
+                    if name:  # Ensure name is provided
                         avg_toxic = toxic_score_sofar(file_name='user_responses.csv')
 
                         if st.session_state.filter_responses is not None:
@@ -586,9 +588,9 @@ def main():
                                 st.error("Göndermeden önce lütfen filtre sorularını yanıtlayın.")
                     else:
                         if language == "EN":
-                            st.error("Please enter your name and email before submitting.")
+                            st.error("Please enter your name before submitting.")
                         elif language == "TR":
-                            st.error("Göndermeden önce lütfen adınızı ve e-posta adresinizi girin.")
+                            st.error("Göndermeden önce lütfen adınızı girin.")
 
             # Show feedback only after submission
             if st.session_state.submitted and not st.session_state.feedback_submitted:
@@ -637,7 +639,7 @@ def main():
 
                 # Optionally, add a button to restart the survey
                 if st.button("Start New Survey / Yeni Anket Başlat"):
-                    # Reset only the bf_name and other necessary states, but keep name, email, and language
+                    # Reset only the necessary states, but keep user_id and user_details
                     st.session_state.user_details["bf_name"] = None
                     st.session_state.filter_responses = None
                     st.session_state.filter_violations = 0

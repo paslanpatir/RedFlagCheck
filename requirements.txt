@@ -2,7 +2,15 @@ streamlit
 pandas
 numpy
 uuid
+os
 re
+uuid
+ast
 openpyxl
 matplotlib
 streamlit.components.v1
+boto3
+math
+decimal
+datetime
+plotnine

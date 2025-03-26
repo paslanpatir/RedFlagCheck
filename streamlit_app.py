@@ -784,18 +784,18 @@ def main(DB_READ,DB_WRITE):
         current_step = "language_selection"
         st.progress(get_progress(current_step))
         print(f"{current_step=}")
-        st.session_state.user_details["language"] = 'TR'
-        st.rerun()
-        #ask_language()
+        #st.session_state.user_details["language"] = 'TR'
+        #st.rerun()
+        ask_language()
         
     elif not st.session_state.user_details["name"]:
         current_step = "user_details"
         st.progress(get_progress(current_step))
         print(f"{current_step=}")
-        #ask_user_details()
-        st.session_state.user_details["name"] ='deneme'
-        st.session_state.user_details["email"] = 'deneme@deneme.com'
-        st.rerun()
+        ask_user_details()
+        #st.session_state.user_details["name"] ='deneme'
+        #st.session_state.user_details["email"] = 'deneme@deneme.com'
+        #st.rerun()
         
     elif not st.session_state.user_details["bf_name"]:
         current_step = "bf_name"
